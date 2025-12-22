@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Door Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .door-button {
+            position: relative;
+            padding: 20px 30px;
+            font-size: 18px;
+            font-weight: 600;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            overflow: hidden;
+        }
+
+        .door-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .door-button:not(:disabled):hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .door-button:not(:disabled):active {
+            transform: translateY(0);
+        }
+
+        #buildingBtn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        #apartmentBtn {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .icon {
+            font-size: 24px;
+        }
+
+        .status {
+            margin-top: 30px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 14px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            display: block;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+            display: block;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+            display: block;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 18px;
+            height: 18px;
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏠 Door Control</h1>
+        <p class="subtitle">Tap a button to open the door</p>
+        
+        <div class="button-container">
+            <button id="buildingBtn" class="door-button">
+                <span class="icon">🏢</span>
+                <span>Open Building Door</span>
+            </button>
+            
+            <button id="apartmentBtn" class="door-button">
+                <span class="icon">🚪</span>
+                <span>Open Apartment Door</span>
+            </button>
+        </div>
+
+        <div id="status" class="status"></div>
+    </div>
+
+    <script>
+        // Hardcoded Configuration - UPDATE THESE VALUES
+        const CONFIG = {
+            haUrl: 'http://YOUR_HOME_ASSISTANT_IP:8123',  // Change this to your Home Assistant URL
+            buildingWebhook: 'my_secure_action_webhook',
+            apartmentWebhook: 'nuki_unlock_webhook'
+        };
+
+        // Get token from URL query parameter
+        function getTokenFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('token');
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            
+            if (type === 'success' || type === 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Trigger webhook
+        async function triggerWebhook(webhookId, buttonElement, doorName) {
+            const token = getTokenFromUrl();
+            
+            if (!token) {
+                showStatus('❌ Access denied. Please use the correct link.', 'error');
+                return;
+            }
+
+            if (!CONFIG.haUrl || CONFIG.haUrl === 'http://YOUR_HOME_ASSISTANT_IP:8123') {
+                showStatus('❌ Service not configured. Please contact administrator.', 'error');
+                return;
+            }
+
+            // Disable button and show loading
+            buttonElement.disabled = true;
+            const originalContent = buttonElement.innerHTML;
+            buttonElement.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
+
+            try {
+                const url = `${CONFIG.haUrl}/api/webhook/${webhookId}?token=${encodeURIComponent(token)}`;
+                
+                const response = await fetch(url, {
+                    method: 'GET'
+                });
+
+                // Check if the response is ok (status 200-299)
+                if (response.ok) {
+                    showStatus(`✅ ${doorName} door opened!`, 'success');
+                } else if (response.status === 401 || response.status === 403) {
+                    showStatus('❌ Access denied. Invalid or expired token.', 'error');
+                } else {
+                    showStatus(`❌ Failed to open ${doorName} door. Please try again.`, 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error triggering webhook:', error);
+                showStatus(`❌ Connection failed. Please check your internet connection.`, 'error');
+            } finally {
+                // Re-enable button
+                setTimeout(() => {
+                    buttonElement.disabled = false;
+                    buttonElement.innerHTML = originalContent;
+                }, 2000);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('buildingBtn').addEventListener('click', function() {
+            triggerWebhook(CONFIG.buildingWebhook, this, 'Building');
+        });
+
+        document.getElementById('apartmentBtn').addEventListener('click', function() {
+            triggerWebhook(CONFIG.apartmentWebhook, this, 'Apartment');
+        });
+
+        // Check if token is present on load
+        window.addEventListener('load', () => {
+            const token = getTokenFromUrl();
+            if (!token) {
+                showStatus('⚠️ Please use the shared link to access this page.', 'info');
+            }
+        });
+    </script>
+</body>
+</html>
