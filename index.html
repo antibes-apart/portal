@@ -163,7 +163,7 @@
         // Hardcoded Configuration - UPDATE THESE VALUES
         const CONFIG = {
             haUrl: 'https://ha.apartantibes.com',  // Change this to your Home Assistant URL
-            buildingWebhook: 'building_door222',
+            buildingWebhook: 'building_door',
             apartmentWebhook: 'apart-opener'
         };
 
@@ -212,13 +212,12 @@
                     method: 'GET'
                 });
 
-                // Check if the response is ok (status 200-299)
+                // Home Assistant webhooks generally return 200 when the webhook is received,
+                // even if automation conditions fail. So treat 2xx as "request sent".
                 if (response.ok) {
-                    showStatus(`✅ ${doorName} door opened!`, 'success');
-                } else if (response.status === 401 || response.status === 403) {
-                    showStatus('❌ Access denied. Invalid or expired token.', 'error');
+                    showStatus(`✅ ${doorName}: request sent.`, 'success');
                 } else {
-                    showStatus(`❌ Failed to open ${doorName} door. Please try again.`, 'error');
+                    showStatus(`❌ ${doorName}: request failed. Please try again or contact your administrator.`, 'error');
                 }
                 
             } catch (error) {
