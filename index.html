@@ -160,9 +160,9 @@
     </div>
 
     <script>
-        // Hardcoded Configuration - UPDATE THESE VALUES
+        // Configuration
         const CONFIG = {
-            haUrl: 'https://ha.apartantibes.com',  // Change this to your Home Assistant URL
+            apiUrl: 'https://api.apartantibes.com/',
             buildingWebhook: 'building_door',
             apartmentWebhook: 'apart-opener'
         };
@@ -186,17 +186,12 @@
             }
         }
 
-        // Trigger webhook
-        async function triggerWebhook(webhookId, buttonElement, doorName) {
+        // Trigger action
+        async function actionHandler(webhookId, buttonElement, doorName) {
             const token = getTokenFromUrl();
             
             if (!token) {
                 showStatus('❌ Access denied. Please use the correct link.', 'error');
-                return;
-            }
-
-            if (!CONFIG.haUrl || CONFIG.haUrl === 'http://YOUR_HOME_ASSISTANT_IP:8123') {
-                showStatus('❌ Service not configured. Please contact administrator.', 'error');
                 return;
             }
 
@@ -206,14 +201,14 @@
             buttonElement.innerHTML = '<span class="spinner"></span><span>Opening...</span>';
 
             try {
-                const url = `${CONFIG.haUrl}/api/webhook/${webhookId}?token=${encodeURIComponent(token)}`;
-                
-                const response = await fetch(url, {
-                    method: 'GET'
+                const response = await fetch(CONFIG.apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ webhookId, token })
                 });
 
-                // Home Assistant webhooks generally return 200 when the webhook is received,
-                // even if automation conditions fail. So treat 2xx as "request sent".
+                // The backend endpoint generally returns 200 when the request is received,
+                // even if downstream processing fails. So treat 2xx as "request sent".
                 if (response.ok) {
                     showStatus(`✅ ${doorName}: request sent.`, 'success');
                 } else {
@@ -234,11 +229,11 @@
 
         // Event listeners
         document.getElementById('buildingBtn').addEventListener('click', function() {
-            triggerWebhook(CONFIG.buildingWebhook, this, 'Building');
+            actionHandler(CONFIG.buildingWebhook, this, 'Building');
         });
 
         document.getElementById('apartmentBtn').addEventListener('click', function() {
-            triggerWebhook(CONFIG.apartmentWebhook, this, 'Apartment');
+            actionHandler(CONFIG.apartmentWebhook, this, 'Apartment');
         });
 
         // Check if token is present on load
